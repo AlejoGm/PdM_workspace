@@ -93,7 +93,14 @@ int main(void)
   /* USER CODE BEGIN 2 */
   uint32_t tiempos[] = {200, 500};
   uint8_t indiceTiempo = 0;
-  GPIO_PinState estadoAnterior = GPIO_PIN_SET;
+
+  uint32_t prevMillisLED = 0;
+  uint32_t intervaloLED = 200;
+  uint8_t ledState = 0;
+
+  uint32_t prevMillisBoton = 0;
+  GPIO_PinState botonAnterior = GPIO_PIN_SET; // Estado inicial del botón
+  uint8_t botonPresionado = 0;
 
   /* USER CODE END 2 */
 
@@ -101,19 +108,47 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);  // LED ON
-	  HAL_Delay(tiempos[indiceTiempo]);                    // Delay ON (200 o 500 ms)
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET); // LED OFF
-	  HAL_Delay(tiempos[indiceTiempo]);                     // Delay OFF (igual tiempo que ON para 50%)
 
-	  // Leer botón después del ciclo ON-OFF
-	  GPIO_PinState estadoActual = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
-
-	  if (estadoAnterior == GPIO_PIN_SET && estadoActual == GPIO_PIN_RESET)
+	  while (1)
 	  {
-		  indiceTiempo = (indiceTiempo + 1) % (sizeof(tiempos)/sizeof(tiempos[0]));
+	      uint32_t currentMillis = HAL_GetTick();
+
+	      // Manejo del LED (No bloqueante)
+	      if (currentMillis - prevMillisLED >= intervaloLED)
+	      {
+	          prevMillisLED = currentMillis;
+
+	          ledState = !ledState;
+	          HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, ledState);
+	      }
+
+	      // Manejo del botón con anti-rebote no bloqueante
+	      GPIO_PinState botonActual = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+
+	      if (botonActual != botonAnterior)
+	      {
+	          // Reiniciar el temporizador de debounce
+	          prevMillisBoton = currentMillis;
+	          botonAnterior = botonActual;
+	      }
+
+	      if ((currentMillis - prevMillisBoton) >= 20) // 20 ms debounce
+	      {
+	          if (botonPresionado == 0 && botonActual == GPIO_PIN_RESET)
+	          {
+	              botonPresionado = 1;
+
+	              // Acción al presionar el botón:
+	              indiceTiempo = (indiceTiempo + 1) % (sizeof(tiempos)/sizeof(tiempos[0]));
+	              intervaloLED = tiempos[indiceTiempo];
+	          }
+	          else if (botonActual == GPIO_PIN_SET)
+	          {
+	              botonPresionado = 0;
+	          }
+	      }
 	  }
-	  estadoAnterior = estadoActual;
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
