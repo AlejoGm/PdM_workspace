@@ -56,6 +56,12 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+/* USER CODE BEGIN 4 */
+
+void debounceFSM_init();
+void debounceFSM_update();
+void buttonPressed();
+void buttonReleased();
 
 /* USER CODE END 0 */
 
@@ -90,13 +96,6 @@ int main(void)
   MX_USART2_UART_Init();
 
   /* USER CODE BEGIN 2 */
-   const uint32_t TIEMPOS[] = {100,500};
-   const uint32_t steps = sizeof(TIEMPOS) / sizeof(uint32_t);
-   delay_t ledDelay;
-   uint32_t currentStep = 0;
-
-   /* USER CODE END 2 */
-   delayInit(&ledDelay, TIEMPOS[currentStep]);
    debounceFSM_init();
 
    /* Infinite loop */
@@ -104,19 +103,7 @@ int main(void)
    while (1)
    {
      /* USER CODE END WHILE */
- 	debounceFSM_update();
-     if (delayRead(&ledDelay))
-     {
-         HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-     }
-     if (readKey())
- 	{
- 		currentStep++;
- 		if (currentStep >= steps)
- 			currentStep = 0;
-
- 		delayWrite(&ledDelay, TIEMPOS[currentStep]);
- 	}
+ 	 debounceFSM_update();
      /* USER CODE BEGIN 3 */
    }
 
@@ -243,6 +230,74 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+typedef enum{
+	BUTTON_UP,
+	BUTTON_FALLING,
+	BUTTON_DOWN,
+	BUTTON_RAISING,
+} debounceState_t;
+
+static debounceState_t currentState = BUTTON_UP;
+static delay_t debounceDelay;
+static const uint32_t debounceWait = 40;
+
+void buttonPressed(){
+	HAL_GPIO_WritePin(LD2_GPIO_Port,LD2_Pin,GPIO_PIN_SET);
+}
+void buttonReleased(){
+	HAL_GPIO_WritePin(LD2_GPIO_Port,LD2_Pin,GPIO_PIN_RESET);
+}
+static bool isKeyPressed(){
+	return HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET;
+}
+
+void debounceFSM_init(){
+	currentState = BUTTON_UP;
+	delayInit(&debounceDelay, debounceWait);
+}
+
+void debounceFSM_update(){
+	switch(currentState)
+	{
+	case BUTTON_UP:
+		if(isKeyPressed()){
+			currentState=BUTTON_FALLING;
+			(void)delayRead(&debounceDelay); // inicio timer, debería devolver falso
+		}
+		break;
+	case BUTTON_FALLING:
+		if(delayRead(&debounceDelay)){
+			//se cumplió el tiempo
+			if(isKeyPressed()){
+				currentState = BUTTON_DOWN;
+				buttonPressed();
+			}else{
+				currentState = BUTTON_UP;
+			}
+		}
+		break;
+	case BUTTON_DOWN:
+		if(!isKeyPressed()){
+			currentState = BUTTON_RAISING;
+			(void)delayRead(&debounceDelay); // inicio timer, debería devolver falso
+		}
+		break;
+	case BUTTON_RAISING:
+		if(delayRead(&debounceDelay)){
+			//se cumplió el tiempo
+			if(!isKeyPressed()){
+				currentState = BUTTON_UP;
+				buttonReleased();
+			}else{
+				currentState = BUTTON_DOWN;
+			}
+		}
+		break;
+	default:
+		break;
+	}
+}
 
 /* USER CODE END 4 */
 
