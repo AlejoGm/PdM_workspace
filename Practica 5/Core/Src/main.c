@@ -55,9 +55,15 @@ static void MX_GPIO_Init(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
+
+/**
+ * @brief Devuelve un mensaje en forma de string según el estado de la tecla.
+ *
+ * @param status Estado de tecla del tipo KeyStatus_t.
+ * @return const char* Cadena descriptiva correspondiente al estado.
+ */
 const char* getKeyStatusMsg(KeyStatus_t status);
-/* USER CODE END 0 */
+
 
 /**
   * @brief  The application entry point.
